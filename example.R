@@ -29,6 +29,30 @@ ggpairs(data=data_val, columns=1:3, title="trees data",cardinality_threshold=195
 fit_1 <- lm(Year ~ Range, data = trees)
 
 library(forecast)
-time_series <- ts(data_val$Range,start = c(1960),end=c(2021),frequency = 12)
+data_val_india <-  select(data)
+time_series <- ts( )
 print(time_series)
-autoplot(time_series,xlab = "Year", ylab = "CO2 Emission")
+plot(time_series,xlab = "Year", ylab = "CO2 Emission")
+decomposed_data <- decompose(time_series,"multiplicative")
+plot(decomposed_data)
+abline(reg=lm(time_series~time(time_series)))
+summary(data_val)
+
+
+# Forecasting 
+
+model <- auto.arima(time_series)
+
+model
+plot.ts(model$residuals)
+forecast_vale <- forecast(model,level = c(95),h=80*1)
+plot(forecast_vale)
+
+
+Box.test(model$residuals,lag=5,type="Ljung-Box")
+
+
+Box.test(model$residuals,lag=10,type="Ljung-Box")
+
+
+Box.test(model$residuals,lag=15,type="Ljung-Box")

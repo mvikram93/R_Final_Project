@@ -7,20 +7,16 @@ if (!require("pacman")) install.packages("pacman")
 
 # Loading the packages 
 pacman::p_load(magrittr, 
-               pacman, 
+               forecast,
                rio,
                agricolae,
-               tidyverse, 
+               tidyverse,
+               timetk,
                corrplot,
                formattable,
-               forecast,
-               caTools,
-               ggplot2,
-               psych,
-               outliers,
-               PerformanceAnalytics)
+               forecast)
 
-
+library(timetk)
 #' Converting data from char into Float
 #'
 #' @param data_v Column data of type character
@@ -121,6 +117,7 @@ colnames_value <- c("Country",
                     "Energy",
                     "Temperature")
 
+ 
 # Renaming the columns with the 
 # character vector that is created
 names(temp_emission_socio_data) <- colnames_value
@@ -152,44 +149,26 @@ all_temp_year_data <- temp_emission_socio_data %>% select(Year,Temperature,
                                                           GhgInclLandForestry,
                                                           Population)
 
-#Box Plot for Temperature (Outlier)
+# Box Plot for Temperature (Outlier)
 ggplot(temp_year_data,aes(x=Year,y=Temperature))+
   geom_boxplot(outlier.size=5)
 
 
-# Training a Linear model with the dependent variable being the Temperature 
-# and the independant variables are Population and GhgInclLandForestry  
-# Equation : Tempeature = Population + GhgInclLandForestry
-regression <- lm(Temperature ~ Population + GhgInclLandForestry,data = all_temp_year_data) 
 
-# Provides the summary of the 
-# regression model
-summary(regression)
-
-
-# Preparing the data to predict the temperature
-new_test <- data.frame(Population=10541000000,
-                       GhgInclLandForestry=45557.80961)
-
-# Predicting temperature based 
-# on the model trained
-predict(regression,newdata = new_test)
-
-# Save the model in RData format
-save(regression,file = "models/lm.RData")
-
-
-############### Plotting the COR Plot
+############### Plotting the COR Plot ###############
 
 # Removing the NA data
 data_mat <- na.omit(temp_emission_socio_data)
+
 
 # Unlisting the data which is numeric 
 # and converting it as a matrix 
 data_cor<- as.matrix(data_mat[,unlist(lapply(data_mat,is.numeric))])
 
+
 # COR is calculated based on the pearson method 
 corr_plot_values <- cor(data_cor,method = c("pearson"))
+
 
 # CORRPLOT used to plot the graph based on 
 # the COR value calculate in the previous step
@@ -201,14 +180,6 @@ corrplot(corr_plot_values,
 
 
 
-ggplot(world_data) +
-  aes(x="",y="Population") +
-  geom_boxplot(fill = "#0c4c8a") +
-  theme_minimal()
-
-test <- grubbs.test(world_data$Population)
-print(test)
-
 
 # Performing ANOVA for the Linear model formula
 aov_summary <- aov(formula = Temperature ~ Population + GhgInclLandForestry,
@@ -217,9 +188,84 @@ aov_summary <- aov(formula = Temperature ~ Population + GhgInclLandForestry,
 # Gives the summary of the ANOVA results
 summary(aov_summary)
 
+# Plotting the ANOVA residuals in Histogram
 hist(aov_summary$residuals)
 
-qqnorm(aov_summary$residuals)
-qqline(aov_summary$residuals)
 
-HSD.test(aov_summary,"Population", group = FALSE)$comparison
+################## Forecasting #################
+time_series_data_population <- ts(world_data$Population,frequency = 1,start = c("1990"))
+time_series_data_population
+
+#### Building a Population Forecasting Model ####
+population_model <- auto.arima(time_series_data_population,trace = TRUE)
+
+# Plotting the data that does not fit into the model
+plot.ts(population_model$residuals)
+
+# Forecasting the population with 
+# 95% as the confidence till the year 2100
+population_forecasting <- forecast(population_model,level = c(95),h=89)
+
+# Display the summary of the population forecasting
+summary(population_forecasting)
+
+# Plotting the forecasted value using autoplot
+autoplot(population_forecasting,ylab="Population (billions)",xlab="Year") + 
+  ggtitle(" World Population Growth Forecasting till 2100")
+
+# Converted the forecasted value into tibble 
+# to retrieve the 2100 Population value
+time_series_value <- as.tibble(population_forecasting)
+population_forecast_value_2100 <- time_series_value[nrow(time_series_value),]['Point Forecast']
+
+#### Green House Gas Emission by Land and Forestry Forecasting Model ####
+
+time_series_data_GhgInclLandForestry <- ts(world_data$GhgInclLandForestry,frequency = 1,start = c("1990"))
+time_series_data_GhgInclLandForestry
+
+#### Building a Green House Gas Forecasting Model ####
+GhgInclLandForestry_model <- auto.arima(time_series_data_GhgInclLandForestry,trace = TRUE)
+
+# Plotting the data that does not fit into the model
+plot.ts(GhgInclLandForestry_model$residuals)
+
+# Forecasting the Green House Gas Emission by Land and Forestry with 
+# 95% as the confidence till the year 2100
+GhgInclLandForestry_forecasting <- forecast(GhgInclLandForestry_model,level = c(95),h=89)
+
+# Display the summary of the population forecasting
+summary(GhgInclLandForestry_forecasting)
+
+# Plotting the forecasted value using autoplot
+autoplot(GhgInclLandForestry_forecasting,ylab="GhgInclLandForestry (CO2e)",xlab="Year") + 
+  ggtitle("GhgInclLandForestry Emission Forecasting till 2100")
+
+# Converted the forecasted value into tibble 
+# to retrieve the 2100 Green House Gas Emission by Land and Forestry  value
+GhgInclLandForestry_forecasting <- as.tibble(GhgInclLandForestry_forecasting)
+GhgInclLandForestry_forecasting_for_2100<-GhgInclLandForestry_forecasting[nrow(GhgInclLandForestry_forecasting),]['Point Forecast']
+
+
+# Training a Linear model with the dependent variable being the Temperature 
+# and the independant variables are Population and GhgInclLandForestry  
+# Equation : Tempeature = Population + GhgInclLandForestry
+regression <- lm(Temperature ~ Population + GhgInclLandForestry,
+                 data = all_temp_year_data) 
+
+# Provides the summary of the 
+# regression model
+summary(regression)
+
+
+# Preparing the data to predict the temperature
+new_test <- data.frame(Population=as.numeric(population_forecast_value_2100),
+                       GhgInclLandForestry=as.numeric(GhgInclLandForestry_forecasting_for_2100))
+
+print(new_test)
+# Predicting temperature based 
+# on the model trained
+predict(regression,newdata = new_test)
+
+# Save the model in RData format
+save(regression,file = "models/lm.RData")
+

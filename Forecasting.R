@@ -41,7 +41,8 @@ formatted_data  <- lapply(ghg_data_from_excel[,c(-1,-2)],format_value)
 merged_data <- data.frame(colum_ghg,formatted_data)
 View(merged_data)
 
-data_split <- sample.split(Y=merged_data_emission_socio$Population__People_,SplitRatio = 0.7)
+data_split <- sample.split(Y=merged_data_emission_socio$Population__People_,
+                           SplitRatio = 0.7)
 print(data_split)
 train_data <- merged_data_emission_socio[data_split,]
 test_data <-merged_data_emission_socio[!data_split,]

@@ -49,3 +49,20 @@ Box.test(model$residuals,lag=10,type="Ljung-Box")
 
 
 Box.test(model$residuals,lag=15,type="Ljung-Box")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
